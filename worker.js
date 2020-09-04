@@ -151,7 +151,7 @@
     }
     
     Babel.registerPlugin('es6-modules-mfwc-stage0', () => {
-        const promiseAllArr = [];
+        let promiseAllArr = [];
         const eofTrigger = {
             type: 'ExpressionStatement',
             expression: {
@@ -174,6 +174,8 @@
                 },
                 ExpressionStatement(path){
                     if(path.node !== eofTrigger) return;
+                    const _promiseAllArr = promiseAllArr;
+                    promiseAllArr = [];
                     const { parent } = path,
                         { body } = parent;
                     body.splice(body.indexOf(eofTrigger), 1);
@@ -260,7 +262,7 @@
                                                         arguments: [
                                                             {
                                                                 type: 'ArrayExpression',
-                                                                elements: promiseAllArr,
+                                                                elements: _promiseAllArr,
                                                             },
                                                         ],
                                                     },
