@@ -1,8 +1,53 @@
 (() => {
     const transformModulesCJS = Babel.availablePlugins['transform-modules-commonjs'];
-    
+
     function transformImportToRequireAsync({ source, specifiers }){
-        const functionBody = [];
+        const functionBody = [
+            {
+                type: 'ExpressionStatement',
+                expression: {
+                    type: 'AssignmentExpression',
+                    operator: '=',
+                    left: {
+                        type: 'Identifier',
+                        name: 'v',
+                    },
+                    right: {
+                        type: 'ConditionalExpression',
+                        test: {
+                            type: 'MemberExpression',
+                            object: {
+                                type: 'Identifier',
+                                name: 'v',
+                            },
+                            property: {
+                                type: 'Identifier',
+                                name: '__esModule',
+                            },
+                            computed: false,
+                        },
+                        consequent: {
+                            type: 'Identifier',
+                            name: 'v',
+                        },
+                        alternate: {
+                            type: 'ObjectExpression',
+                            properties: [{
+                                type: 'ObjectProperty',
+                                key: {
+                                    type: 'Identifier',
+                                    name: 'default',
+                                },
+                                value: {
+                                    type: 'Identifier',
+                                    name: 'v',
+                                },
+                            }],
+                        },
+                    },
+                }
+            }
+        ];
         let needCheck = false;
         const res = {
             type: 'CallExpression',
