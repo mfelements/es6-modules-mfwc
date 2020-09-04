@@ -3,6 +3,7 @@
     
     function transformImportToRequireAsync({ source, specifiers }){
         const functionBody = [];
+        let needCheck = false;
         const res = {
             type: 'CallExpression',
             callee: {
@@ -51,6 +52,7 @@
                             name: 'default',
                         }
                     };
+                    needCheck = true;
                     break;
                 case 'ImportSpecifier':
                     value = {
@@ -61,8 +63,43 @@
                         },
                         property: specifier.imported,
                     };
+                    needCheck = true;
                     break;
             };
+            if(needCheck) functionBody.push({
+                type: 'IfStatement',
+                test: {
+                    type: 'UnaryExpression',
+                    operator: '!',
+                    prefix: true,
+                    argument: {
+                        type: 'BinaryExpression',
+                        left: {
+                            type: 'StringLiteral',
+                            value: value.property.name,
+                        },
+                        operator: 'in',
+                        right: {
+                            type: 'Identifier',
+                            name: 'v',
+                        }
+                    }
+                },
+                consequent: {
+                    type: 'ThrowStatement',
+                    argument: {
+                        type: 'NewExpression',
+                        callee: {
+                            type: 'Identifier',
+                            name: 'ReferenceError',
+                        },
+                        arguments: [{
+                            type: 'StringLiteral',
+                            value: 'Cannot find export ' + value.property.name + ' in ' + source.value,
+                        }],
+                    },
+                },
+            });
             functionBody.push({
                 type: 'ExpressionStatement',
                 expression: {
@@ -321,4 +358,4 @@
             }
         }
     });
-    })()
+})()
