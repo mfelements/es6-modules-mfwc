@@ -261,10 +261,13 @@
                 name: 'EOF TRIGGER'
             }
         };
+        let importMetaVariableName = 'import.meta';
         return {
             visitor: {
                 Program(path){
-                    path.node.body.push(eofTrigger)
+                    path.node.body.push(eofTrigger);
+                    const { value: { value } } = path.node.directives.shift();
+                    importMetaVariableName = value
                 },
                 ImportDeclaration(path){
                     const { parent } = path;
@@ -278,6 +281,12 @@
                     if(path.node.callee.type !== 'Import') return;
                     path.node.callee.type = 'Identifier';
                     path.node.callee.name = 'requireAsync';
+                },
+                MetaProperty(path){
+                    if(path.node.meta.name === 'import' && path.node.property.name === 'meta'){
+                        path.node.type = 'Identifier';
+                        path.node.name = importMetaVariableName;
+                    }
                 },
                 ExpressionStatement(path){
                     if(path.node !== eofTrigger) return;
