@@ -274,6 +274,11 @@
                     block.splice(block.indexOf(path.node), 1);
                     promiseAllArr.push(transformImportToRequireAsync(path.node));
                 },
+                CallExpression(path){
+                    if(path.node.callee.type !== 'Import') return;
+                    path.node.callee.type = 'Identifier';
+                    path.node.callee.name = 'requireAsync';
+                },
                 ExpressionStatement(path){
                     if(path.node !== eofTrigger) return;
                     const _promiseAllArr = promiseAllArr;
