@@ -46,7 +46,27 @@
                         },
                     },
                 }
-            }
+            },
+            {
+                type: 'ExpressionStatement',
+                expression: {
+                    type: 'UnaryExpression',
+                    operator: 'delete',
+                    prefix: true,
+                    argument: {
+                        type: 'MemberExpression',
+                        object: {
+                            type: 'Identifier',
+                            name: 'v',
+                        },
+                        property: {
+                            type: 'Identifier',
+                            name: '__esModule',
+                        },
+                        computed: false,
+                    },
+                },
+            },
         ];
         let needCheck = false;
         const res = {
