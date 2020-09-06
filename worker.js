@@ -318,7 +318,7 @@
                 ExportNamedDeclaration({ parent, node }){
                     if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
                     isESM = true;
-                    const { declaration, specifiers } = node;
+                    const { declaration, specifiers, source } = node;
                     if(declaration){
                         delete node.declaration;
                         parent.body.splice(parent.body.indexOf(node), 0, declaration);
@@ -424,7 +424,222 @@
                                 },
                             ],
                         };
-                    } else if(specifiers){
+                    } else if(source){
+                        parent.body.splice(parent.body.indexOf(node), 1);
+                        promiseAllArr.push({
+                            type: 'CallExpression',
+                            callee: {
+                                type: 'MemberExpression',
+                                object: {
+                                    type: 'CallExpression',
+                                    callee: {
+                                        type: 'Identifier',
+                                        name: 'requireAsync',
+                                    },
+                                    arguments: [ source ],
+                                },
+                                property: {
+                                    type: 'Identifier',
+                                    name: 'then',
+                                },
+                            },
+                            arguments: [{
+                                type: 'ArrowFunctionExpression',
+                                generator: false,
+                                async: false,
+                                params: [{
+                                    type: 'Identifier',
+                                    name: 'v',
+                                }],
+                                body: {
+                                    type: 'BlockStatement',
+                                    body: specifiers.filter(v => v.type === 'ExportSpecifier').map(({ local }) => {
+                                        ensureType('Identifier', local);
+                                        return {
+                                            type: 'IfStatement',
+                                            test: {
+                                                type: 'UnaryExpression',
+                                                operator: '!',
+                                                prefix: true,
+                                                argument: {
+                                                    type: 'BinaryExpression',
+                                                    left: {
+                                                        type: 'StringLiteral',
+                                                        value: local.name,
+                                                    },
+                                                    operator: 'in',
+                                                    right: {
+                                                        type: 'Identifier',
+                                                        name: 'v',
+                                                    }
+                                                }
+                                            },
+                                            consequent: {
+                                                type: 'ThrowStatement',
+                                                argument: {
+                                                    type: 'NewExpression',
+                                                    callee: {
+                                                        type: 'Identifier',
+                                                        name: 'ReferenceError',
+                                                    },
+                                                    arguments: [{
+                                                        type: 'StringLiteral',
+                                                        value: 'Cannot find export ' + local.name + ' in ' + source.value,
+                                                    }],
+                                                },
+                                            },
+                                        }
+                                    }).concat([{
+                                        type: 'CallExpression',
+                                        callee: {
+                                            type: 'MemberExpression',
+                                            object: {
+                                                type: 'Identifier',
+                                                name: 'Object',
+                                            },
+                                            property: {
+                                                type: 'Identifier',
+                                                name: 'defineProperties',
+                                            },
+                                            computed: false,
+                                        },
+                                        arguments: [
+                                            {
+                                                type: 'MemberExpression',
+                                                object: {
+                                                    type: 'Identifier',
+                                                    name: 'module',
+                                                },
+                                                property: {
+                                                    type: 'Identifier',
+                                                    name: 'exports',
+                                                },
+                                                computed: false,
+                                            },
+                                            {
+                                                type: 'ObjectExpression',
+                                                properties: specifiers.map(specifier => {
+                                                    const { exported } = specifier;
+                                                    ensureType('Identifier', exported);
+                                                    const res = {
+                                                        type: 'ObjectProperty',
+                                                        method: false,
+                                                        key: exported,
+                                                        computed: false,
+                                                        shorthand: false,
+                                                    };
+                                                    if(specifier.type === 'ExportSpecifier'){
+                                                        const { local } = specifier;
+                                                        ensureType('Identifier', local);
+                                                        res.value = {
+                                                            type: 'ObjectExpression',
+                                                            properties: [
+                                                                {
+                                                                    type: 'ObjectMethod',
+                                                                    method: true,
+                                                                    computed: false,
+                                                                    generator: false,
+                                                                    async: false,
+                                                                    params: [],
+                                                                    key: {
+                                                                        type: 'Identifier',
+                                                                        name: 'get',
+                                                                    },
+                                                                    body: {
+                                                                        type: 'BlockStatement',
+                                                                        directives: [],
+                                                                        body: [{
+                                                                            type: 'ReturnStatement',
+                                                                            argument: {
+                                                                                type: 'MemberExpression',
+                                                                                object: {
+                                                                                    type: 'Identifier',
+                                                                                    name: 'v',
+                                                                                },
+                                                                                property: {
+                                                                                    type: 'Identifier',
+                                                                                    name: local.name,
+                                                                                },
+                                                                                computed: false,
+                                                                            },
+                                                                        }],
+                                                                    },
+                                                                },
+                                                                {
+                                                                    type: 'ObjectMethod',
+                                                                    method: true,
+                                                                    computed: false,
+                                                                    generator: false,
+                                                                    async: false,
+                                                                    params: [],
+                                                                    key: {
+                                                                        type: 'Identifier',
+                                                                        name: 'set',
+                                                                    },
+                                                                    body: {
+                                                                        type: 'BlockStatement',
+                                                                        directives: [],
+                                                                        body: [],
+                                                                    },
+                                                                },
+                                                            ],
+                                                        }
+                                                    } else if(specifier.type === 'ExportNamespaceSpecifier'){
+                                                        res.value = {
+                                                            type: 'ObjectExpression',
+                                                            properties: [
+                                                                {
+                                                                    type: 'ObjectMethod',
+                                                                    method: true,
+                                                                    computed: false,
+                                                                    generator: false,
+                                                                    async: false,
+                                                                    params: [],
+                                                                    key: {
+                                                                        type: 'Identifier',
+                                                                        name: 'get',
+                                                                    },
+                                                                    body: {
+                                                                        type: 'BlockStatement',
+                                                                        directives: [],
+                                                                        body: [{
+                                                                            type: 'ReturnStatement',
+                                                                            argument: {
+                                                                                type: 'Identifier',
+                                                                                name: 'v',
+                                                                            },
+                                                                        }],
+                                                                    },
+                                                                },
+                                                                {
+                                                                    type: 'ObjectMethod',
+                                                                    method: true,
+                                                                    computed: false,
+                                                                    generator: false,
+                                                                    async: false,
+                                                                    params: [],
+                                                                    key: {
+                                                                        type: 'Identifier',
+                                                                        name: 'set',
+                                                                    },
+                                                                    body: {
+                                                                        type: 'BlockStatement',
+                                                                        directives: [],
+                                                                        body: [],
+                                                                    },
+                                                                },
+                                                            ],
+                                                        }
+                                                    }
+                                                    return res
+                                                })
+                                            },
+                                        ],
+                                    }]),
+                                },
+                            }],
+                        })
+                    } else {
                         node.type = 'ExpressionStatement';
                         node.expression = {
                             type: 'CallExpression',
