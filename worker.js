@@ -282,33 +282,32 @@
                 ExportDefaultDeclaration(path){
                     isESM = true;
                     const { declaration } = path.node;
-                    path.node = {
-                        type: 'ExpressionStatement',
-                        expression: {
-                            type: 'AssignmentExpression',
-                            operator: '=',
-                            left: {
+                    delete path.node.declaration;
+                    path.node.type = 'ExpressionStatement';
+                    path.node.expression = {
+                        type: 'AssignmentExpression',
+                        operator: '=',
+                        left: {
+                            type: 'MemberExpression',
+                            object: {
                                 type: 'MemberExpression',
                                 object: {
-                                    type: 'MemberExpression',
-                                    object: {
-                                        type: 'Identifier',
-                                        name: 'module',
-                                    },
-                                    property: {
-                                        type: 'Identifier',
-                                        name: 'exports',
-                                    },
-                                    computed: false,
+                                    type: 'Identifier',
+                                    name: 'module',
                                 },
                                 property: {
                                     type: 'Identifier',
-                                    name: 'default',
+                                    name: 'exports',
                                 },
                                 computed: false,
                             },
-                            right: declaration,
-                        }
+                            property: {
+                                type: 'Identifier',
+                                name: 'default',
+                            },
+                            computed: false,
+                        },
+                        right: declaration,
                     }
                 },
                 CallExpression(path){
