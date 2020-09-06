@@ -1,5 +1,5 @@
 (() => {
-    const transformModulesCJS = Babel.availablePlugins['transform-modules-commonjs'];
+    const esModulePrivateProp = '__esModule';
 
     function transformImportToRequireAsync({ source, specifiers }){
         const functionBody = [
@@ -22,7 +22,7 @@
                             },
                             property: {
                                 type: 'Identifier',
-                                name: '__esModule',
+                                name: esModulePrivateProp,
                             },
                             computed: false,
                         },
@@ -61,7 +61,7 @@
                         },
                         property: {
                             type: 'Identifier',
-                            name: '__esModule',
+                            name: esModulePrivateProp,
                         },
                         computed: false,
                     },
@@ -262,6 +262,7 @@
             }
         };
         let importMetaVariableName = 'import.meta';
+        let isESM = false;
         return {
             visitor: {
                 Program(path){
@@ -270,6 +271,7 @@
                     path.node.body.push(eofTrigger)
                 },
                 ImportDeclaration(path){
+                    isESM = true;
                     const { parent } = path;
                     const file = path.parentPath.parent;
                     if(parent.type !== 'Program') throw new SyntaxError('Import statements are only allowed at the top level of module');
@@ -277,162 +279,243 @@
                     block.splice(block.indexOf(path.node), 1);
                     promiseAllArr.push(transformImportToRequireAsync(path.node));
                 },
+                ExportDefaultDeclaration(path){
+                    isESM = true;
+                    const { declaration } = path.node;
+                    path.node = {
+                        type: 'ExpressionStatement',
+                        expression: {
+                            type: 'AssignmentExpression',
+                            operator: '=',
+                            left: {
+                                type: 'MemberExpression',
+                                object: {
+                                    type: 'MemberExpression',
+                                    object: {
+                                        type: 'Identifier',
+                                        name: 'module',
+                                    },
+                                    property: {
+                                        type: 'Identifier',
+                                        name: 'exports',
+                                    },
+                                    computed: false,
+                                },
+                                property: {
+                                    type: 'Identifier',
+                                    name: 'default',
+                                },
+                                computed: false,
+                            },
+                            right: declaration,
+                        }
+                    }
+                },
                 CallExpression(path){
                     if(path.node.callee.type !== 'Import') return;
+                    isESM = true;
                     path.node.callee.type = 'Identifier';
                     path.node.callee.name = 'requireAsync';
                 },
                 MetaProperty(path){
                     if(path.node.meta.name === 'import' && path.node.property.name === 'meta'){
+                        isESM = true;
                         path.node.type = 'Identifier';
                         path.node.name = importMetaVariableName;
                     }
                 },
                 ExpressionStatement(path){
                     if(path.node !== eofTrigger) return;
+                    const _isESM = isESM;
+                    isESM = false;
                     const _promiseAllArr = promiseAllArr;
                     promiseAllArr = [];
                     const { parent } = path,
                         { body } = parent;
                     body.splice(body.indexOf(eofTrigger), 1);
-                    const { ast: transformed } = Babel.transformFromAst(path.hub.file.ast.program, null, {
-                        presets: [
-                            Babel.availablePresets.es2017,
-                        ],
-                        plugins: [
-                            transformModulesCJS,
-                        ],
-                        ast: true,
-                        sourceMaps: false,
-                    });
-                    parent.body = [{
-                        type: 'WithStatement',
-                        object: {
-                            type: 'CallExpression',
-                            arguments: [],
-                            callee: {
+                    if(_isESM){
+                        body.push({
+                            type: 'ExpressionStatement',
+                            expression: {
                                 type: 'CallExpression',
                                 callee: {
-                                    type: 'Identifier',
-                                    name: 'await',
+                                    type: 'MemberExpression',
+                                    object: {
+                                        type: 'Identifier',
+                                        name: 'Object',
+                                    },
+                                    property: {
+                                        type: 'Identifier',
+                                        name: 'defineProperty',
+                                    },
+                                    computed: false,
                                 },
-                                arguments: [{
-                                    type: 'ArrowFunctionExpression',
-                                    generator: false,
-                                    async: true,
-                                    params: [],
-                                    body: {
-                                        type: 'BlockStatement',
-                                        body: [
-                                            {
-                                                type: 'VariableDeclaration',
-                                                kind: 'const',
-                                                declarations: [
-                                                    {
-                                                        type: 'VariableDeclarator',
-                                                        id: {
-                                                            type: 'Identifier',
-                                                            name: 'context',
+                                arguments: [
+                                    {
+                                        type: 'MemberExpression',
+                                        object: {
+                                            type: 'Identifier',
+                                            name: 'module',
+                                        },
+                                        property: {
+                                            type: 'Identifier',
+                                            name: 'exports',
+                                        },
+                                        computed: false,
+                                    },
+                                    {
+                                        type: 'StringLiteral',
+                                        value: esModulePrivateProp,
+                                    },
+                                    {
+                                        type: 'ObjectExpression',
+                                        properties: [{
+                                            type: 'ObjectProperty',
+                                            method: false,
+                                            key: {
+                                                type: 'Identifier',
+                                                name: 'value',
+                                            },
+                                            computed: false,
+                                            shorthand: false,
+                                            value: {
+                                                type: 'BooleanLiteral',
+                                                value: true,
+                                            }
+                                        }],
+                                    },
+                                ],
+                            },
+                        });
+                        parent.body = [{
+                            type: 'WithStatement',
+                            object: {
+                                type: 'CallExpression',
+                                arguments: [],
+                                callee: {
+                                    type: 'CallExpression',
+                                    callee: {
+                                        type: 'Identifier',
+                                        name: 'await',
+                                    },
+                                    arguments: [{
+                                        type: 'ArrowFunctionExpression',
+                                        generator: false,
+                                        async: true,
+                                        params: [],
+                                        body: {
+                                            type: 'BlockStatement',
+                                            body: [
+                                                {
+                                                    type: 'VariableDeclaration',
+                                                    kind: 'const',
+                                                    declarations: [
+                                                        {
+                                                            type: 'VariableDeclarator',
+                                                            id: {
+                                                                type: 'Identifier',
+                                                                name: 'context',
+                                                            },
+                                                            init: {
+                                                                type: 'CallExpression',
+                                                                callee: {
+                                                                    type: 'MemberExpression',
+                                                                    computed: false,
+                                                                    object: {
+                                                                        type: 'Identifier',
+                                                                        name: 'Object',
+                                                                    },
+                                                                    property: {
+                                                                        type: 'Identifier',
+                                                                        name: 'create',
+                                                                    }
+                                                                },
+                                                                arguments: [
+                                                                    {
+                                                                        type: 'NullLiteral'
+                                                                    }
+                                                                ]
+                                                            },
                                                         },
-                                                        init: {
+                                                    ],
+                                                },
+                                                {
+                                                    type: 'ExpressionStatement',
+                                                    expression: {
+                                                        type: 'AwaitExpression',
+                                                        argument: {
                                                             type: 'CallExpression',
                                                             callee: {
                                                                 type: 'MemberExpression',
                                                                 computed: false,
                                                                 object: {
                                                                     type: 'Identifier',
-                                                                    name: 'Object',
+                                                                    name: 'Promise'
                                                                 },
                                                                 property: {
                                                                     type: 'Identifier',
-                                                                    name: 'create',
-                                                                }
+                                                                    name: 'all',
+                                                                },
                                                             },
                                                             arguments: [
                                                                 {
-                                                                    type: 'NullLiteral'
-                                                                }
-                                                            ]
+                                                                    type: 'ArrayExpression',
+                                                                    elements: _promiseAllArr,
+                                                                },
+                                                            ],
                                                         },
-                                                    },
-                                                ],
-                                            },
-                                            {
-                                                type: 'ExpressionStatement',
-                                                expression: {
-                                                    type: 'AwaitExpression',
-                                                    argument: {
-                                                        type: 'CallExpression',
-                                                        callee: {
-                                                            type: 'MemberExpression',
-                                                            computed: false,
-                                                            object: {
-                                                                type: 'Identifier',
-                                                                name: 'Promise'
-                                                            },
-                                                            property: {
-                                                                type: 'Identifier',
-                                                                name: 'all',
-                                                            },
-                                                        },
-                                                        arguments: [
-                                                            {
-                                                                type: 'ArrayExpression',
-                                                                elements: _promiseAllArr,
-                                                            },
-                                                        ],
-                                                    },
-                                                }
-                                            },
-                                            {
-                                                type: 'ReturnStatement',
-                                                argument: {
-                                                    type: 'Identifier',
-                                                    name: 'context',
+                                                    }
                                                 },
-                                            },
-                                        ],
-                                        directives: [],
-                                    }
-                                }]
-                            }
-                        },
-                        body: {
-                            type: 'BlockStatement',
-                            directives: [],
-                            body: [{
-                                type: 'ExpressionStatement',
-                                expression: {
-                                    type: 'CallExpression',
-                                    callee: {
+                                                {
+                                                    type: 'ReturnStatement',
+                                                    argument: {
+                                                        type: 'Identifier',
+                                                        name: 'context',
+                                                    },
+                                                },
+                                            ],
+                                            directives: [],
+                                        }
+                                    }]
+                                }
+                            },
+                            body: {
+                                type: 'BlockStatement',
+                                directives: [],
+                                body: [{
+                                    type: 'ExpressionStatement',
+                                    expression: {
                                         type: 'CallExpression',
                                         callee: {
-                                            type: 'Identifier',
-                                            name: 'await',
-                                        },
-                                        arguments: [{
-                                            type: 'ArrowFunctionExpression',
-                                            async: true,
-                                            generator: false,
-                                            body: {
-                                                type: 'BlockStatement',
-                                                body: transformed.program.body,
-                                                directives: [{
-                                                    type: 'Directive',
-                                                    value: {
-                                                        type: 'DirectiveLiteral',
-                                                        value: 'use strict',
-                                                    }
-                                                }],
+                                            type: 'CallExpression',
+                                            callee: {
+                                                type: 'Identifier',
+                                                name: 'await',
                                             },
-                                            params: [],
-                                        }]
-                                    },
-                                    arguments: [],
-                                }
-                            }],
-                        },
-                    }]
+                                            arguments: [{
+                                                type: 'ArrowFunctionExpression',
+                                                async: true,
+                                                generator: false,
+                                                body: {
+                                                    type: 'BlockStatement',
+                                                    body,
+                                                    directives: [{
+                                                        type: 'Directive',
+                                                        value: {
+                                                            type: 'DirectiveLiteral',
+                                                            value: 'use strict',
+                                                        }
+                                                    }],
+                                                },
+                                                params: [],
+                                            }]
+                                        },
+                                        arguments: [],
+                                    }
+                                }],
+                            },
+                        }]
+                    }
                 },
             }
         }
