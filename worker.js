@@ -265,9 +265,9 @@
         return {
             visitor: {
                 Program(path){
-                    path.node.body.push(eofTrigger);
-                    const { value: { value } } = path.node.directives.shift();
-                    importMetaVariableName = value
+                    const { expression: { value } } = path.node.body.pop();
+                    importMetaVariableName = value;
+                    path.node.body.push(eofTrigger)
                 },
                 ImportDeclaration(path){
                     const { parent } = path;
