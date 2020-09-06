@@ -252,6 +252,10 @@
         return res
     }
     
+    function ensureType(type, ...objects){
+        for(const object of objects) if(object.type !== type) throw new TypeError(`Cannot ensure object is of type ${type}`)
+    }
+
     Babel.registerPlugin('es6-modules-mfwc-stage0', () => {
         let promiseAllArr = [];
         const eofTrigger = {
@@ -271,10 +275,10 @@
                     path.node.body.push(eofTrigger)
                 },
                 ImportDeclaration(path){
-                    isESM = true;
                     const { parent } = path;
                     const file = path.parentPath.parent;
                     if(parent.type !== 'Program') throw new SyntaxError('Import statements are only allowed at the top level of module');
+                    isESM = true;
                     const block = file.program.body;
                     block.splice(block.indexOf(path.node), 1);
                     promiseAllArr.push(transformImportToRequireAsync(path.node));
@@ -313,7 +317,8 @@
                 },
                 ExportNamedDeclaration({ parent, node }){
                     if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
-                    const { declaration } = node;
+                    isESM = true;
+                    const { declaration, specifiers } = node;
                     if(declaration){
                         delete node.declaration;
                         parent.body.splice(parent.body.indexOf(node), 0, declaration);
@@ -392,6 +397,108 @@
                                                             argument: {
                                                                 type: 'Identifier',
                                                                 name,
+                                                            },
+                                                        }],
+                                                    },
+                                                },
+                                                {
+                                                    type: 'ObjectMethod',
+                                                    method: true,
+                                                    computed: false,
+                                                    generator: false,
+                                                    async: false,
+                                                    params: [],
+                                                    key: {
+                                                        type: 'Identifier',
+                                                        name: 'set',
+                                                    },
+                                                    body: {
+                                                        type: 'BlockStatement',
+                                                        directives: [],
+                                                        body: [],
+                                                    },
+                                                },
+                                            ]
+                                        },
+                                    })),
+                                },
+                            ],
+                        };
+                    } else if(specifiers){
+                        node.type = 'ExpressionStatement';
+                        node.expression = {
+                            type: 'CallExpression',
+                            callee: {
+                                type: 'MemberExpression',
+                                object: {
+                                    type: 'Identifier',
+                                    name: 'Object',
+                                },
+                                property: {
+                                    type: 'Identifier',
+                                    name: 'defineProperties',
+                                },
+                            },
+                            arguments: [
+                                {
+                                    type: 'MemberExpression',
+                                    object: {
+                                        type: 'Identifier',
+                                        name: 'module',
+                                    },
+                                    property: {
+                                        type: 'Identifier',
+                                        name: 'exports',
+                                    },
+                                    computed: false,
+                                },
+                                {
+                                    type: 'ObjectExpression',
+                                    properties: specifiers.map(({ local, exported }) => (ensureType('Identifier', local, exported), {
+                                        type: 'ObjectProperty',
+                                        method: false,
+                                        computed: false,
+                                        shorthand: false,
+                                        key: {
+                                            type: 'Identifier',
+                                            name: exported.name,
+                                        },
+                                        value: {
+                                            type: 'ObjectExpression',
+                                            properties: [
+                                                {
+                                                    type: 'ObjectProperty',
+                                                    method: false,
+                                                    computed: false,
+                                                    shorthand: false,
+                                                    key: {
+                                                        type: 'Identifier',
+                                                        name: 'enumerable',
+                                                    },
+                                                    value: {
+                                                        type: 'BooleanLiteral',
+                                                        value: true,
+                                                    },
+                                                },
+                                                {
+                                                    type: 'ObjectMethod',
+                                                    method: true,
+                                                    computed: false,
+                                                    generator: false,
+                                                    async: false,
+                                                    params: [],
+                                                    key: {
+                                                        type: 'Identifier',
+                                                        name: 'get',
+                                                    },
+                                                    body: {
+                                                        type: 'BlockStatement',
+                                                        directives: [],
+                                                        body: [{
+                                                            type: 'ReturnStatement',
+                                                            argument: {
+                                                                type: 'Identifier',
+                                                                name: local.name,
                                                             },
                                                         }],
                                                     },
