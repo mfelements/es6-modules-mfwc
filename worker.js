@@ -743,6 +743,284 @@
                         };
                     }
                 },
+                ExportAllDeclaration({ parent, node }){
+                    if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
+                    const { source } = node;
+                    delete node.source;
+                    node.type = 'CallExpression';
+                    node.callee = {
+                        type: 'MemberExpression',
+                        computed: false,
+                        object: {
+                            type: 'CallExpression',
+                            callee: {
+                                type: 'Identifier',
+                                name: 'requireAsync',
+                            },
+                            arguments: [ source ],
+                        },
+                        property: {
+                            type: 'Identifier',
+                            name: 'then',
+                        },
+                    };
+                    node.arguments = [{
+                        type: 'ArrowFunctionExpression',
+                        generator: false,
+                        async: false,
+                        params: [{
+                            type: 'Identifier',
+                            name: 'v',
+                        }],
+                        body: {
+                            type: 'BlockStatement',
+                            directives: [],
+                            body: [
+                                {
+                                    type: 'VariableDeclaration',
+                                    kind: 'const',
+                                    declarations: [
+                                        {
+                                            type: 'VariableDeclarator',
+                                            id: {
+                                                type: 'Identifier',
+                                                name: 'keys',
+                                            },
+                                            init: {
+                                                type: 'CallExpression',
+                                                callee: {
+                                                    type: 'MemberExpression',
+                                                    computed: false,
+                                                    object: {
+                                                        type: 'Identifier',
+                                                        name: 'Object',
+                                                    },
+                                                    property: {
+                                                        type: 'Identifier',
+                                                        name: 'keys',
+                                                    },
+                                                },
+                                                arguments: [{
+                                                    type: 'Identifier',
+                                                    name: 'v',
+                                                }],
+                                            },
+                                        },
+                                        {
+                                            type: 'VariableDeclarator',
+                                            id: {
+                                                type: 'Identifier',
+                                                name: 'props',
+                                            },
+                                            init: {
+                                                type: 'ObjectExpression',
+                                                properties: [],
+                                            },
+                                        },
+                                    ],
+                                },
+                                {
+                                    type: 'ForOfStatement',
+                                    await: false,
+                                    left: {
+                                        type: 'VariableDeclaration',
+                                        declarations: [{
+                                            type: 'VariableDeclarator',
+                                            id: {
+                                                type: 'Identifier',
+                                                name: 'key',
+                                            },
+                                            init: null,
+                                        }],
+                                        kind: 'const',
+                                    },
+                                    right: {
+                                        type: 'Identifier',
+                                        name: 'keys',
+                                    },
+                                    body: {
+                                        type: 'BlockStatement',
+                                        directives: [],
+                                        body: [
+                                            {
+                                                type: 'IfStatement',
+                                                test: {
+                                                    type: 'BinaryExpression',
+                                                    operator: 'in',
+                                                    left: {
+                                                        type: 'Identifier',
+                                                        name: 'key',
+                                                    },
+                                                    right: {
+                                                        type: 'MemberExpression',
+                                                        computed: false,
+                                                        object: {
+                                                            type: 'Identifier',
+                                                            name: 'module',
+                                                        },
+                                                        property: {
+                                                            type: 'Identifier',
+                                                            name: 'exports',
+                                                        },
+                                                    },
+                                                },
+                                                consequent: {
+                                                    type: 'ThrowStatement',
+                                                    argument: {
+                                                        type: 'NewExpression',
+                                                        callee: {
+                                                            type: 'Identifier',
+                                                            name: 'ReferenceError',
+                                                        },
+                                                        arguments: [{
+                                                            type: 'BinaryExpression',
+                                                            operator: '+',
+                                                            left: {
+                                                                type: 'StringLiteral',
+                                                                value: 'Cannot redeclare export ',
+                                                            },
+                                                            right: {
+                                                                type: 'Identifier',
+                                                                name: 'key',
+                                                            },
+                                                        }],
+                                                    },
+                                                },
+                                                alternate: null,
+                                            },
+                                            {
+                                                type: 'ExpressionStatement',
+                                                expression: {
+                                                    type: 'AssignmentExpression',
+                                                    operator: '=',
+                                                    left: {
+                                                        type: 'MemberExpression',
+                                                        computed: true,
+                                                        object: {
+                                                            type: 'Identifier',
+                                                            name: 'props',
+                                                        },
+                                                        property: {
+                                                            type: 'Identifier',
+                                                            name: 'key',
+                                                        },
+                                                    },
+                                                    right: {
+                                                        type: 'ObjectExpression',
+                                                        properties: [
+                                                            {
+                                                                type: 'ObjectMethod',
+                                                                method: true,
+                                                                generator: false,
+                                                                async: false,
+                                                                kind: 'method',
+                                                                params: [],
+                                                                computed: false,
+                                                                key: {
+                                                                    type: 'Identifier',
+                                                                    name: 'get',
+                                                                },
+                                                                body: {
+                                                                    type: 'BlockStatement',
+                                                                    directives: [],
+                                                                    body: [{
+                                                                        type: 'ReturnStatement',
+                                                                        argument: {
+                                                                            type: 'MemberExpression',
+                                                                            computed: true,
+                                                                            object: {
+                                                                                type: 'Identifier',
+                                                                                name: 'v',
+                                                                            },
+                                                                            property: {
+                                                                                type: 'Identifier',
+                                                                                name: 'key',
+                                                                            },
+                                                                        },
+                                                                    }],
+                                                                },
+                                                            },
+                                                            {
+                                                                type: 'ObjectMethod',
+                                                                method: true,
+                                                                generator: false,
+                                                                async: false,
+                                                                kind: 'method',
+                                                                params: [],
+                                                                computed: false,
+                                                                key: {
+                                                                    type: 'Identifier',
+                                                                    name: 'set',
+                                                                },
+                                                                body: {
+                                                                    type: 'BlockStatement',
+                                                                    directives: [],
+                                                                    body: [],
+                                                                },
+                                                            },
+                                                            {
+                                                                type: 'ObjectProperty',
+                                                                method: false,
+                                                                computed: false,
+                                                                shorthand: false,
+                                                                key: {
+                                                                    type: 'Identifier',
+                                                                    name: 'enumerable',
+                                                                },
+                                                                value: {
+                                                                    type: 'BooleanLiteral',
+                                                                    value: true,
+                                                                },
+                                                            },
+                                                        ],
+                                                    },
+                                                },
+                                            },
+                                        ],
+                                    }
+                                },
+                                {
+                                    type: 'ExpressionStatement',
+                                    expression: {
+                                        type: 'CallExpression',
+                                        callee: {
+                                            type: 'MemberExpression',
+                                            computed: false,
+                                            object: {
+                                                type: 'Identifier',
+                                                name: 'Object',
+                                            },
+                                            property: {
+                                                type: 'Identifier',
+                                                name: 'defineProperties',
+                                            },
+                                        },
+                                        arguments: [
+                                            {
+                                                type: 'MemberExpression',
+                                                computed: false,
+                                                object: {
+                                                    type: 'Identifier',
+                                                    name: 'module',
+                                                },
+                                                property: {
+                                                    type: 'Identifier',
+                                                    name: 'exports',
+                                                },
+                                            },
+                                            {
+                                                type: 'Identifier',
+                                                name: 'props',
+                                            },
+                                        ],
+                                    },
+                                },
+                            ],
+                        },
+                    }];
+                    promiseAllArr.push(node);
+                    parent.body.splice(parent.body.indexOf(node), 1)
+                },
                 CallExpression(path){
                     if(path.node.callee.type !== 'Import') return;
                     isESM = true;
