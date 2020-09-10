@@ -292,7 +292,46 @@
                 ExportDefaultDeclaration({ node, parent }){
                     if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
                     isESM = true;
-                    const { declaration } = node;
+                    const { declaration, start, end } = node;
+                    parent.body.splice(parent.body.indexOf(node), 0, {
+                        type: 'IfStatement',
+                            test: {
+                                type: 'BinaryExpression',
+                                operator: 'in',
+                                left: {
+                                    type: 'StringLiteral',
+                                    value: 'default',
+                                },
+                                right: {
+                                    type: 'MemberExpression',
+                                    object: {
+                                        type: 'Identifier',
+                                        name: 'module',
+                                    },
+                                    property: {
+                                        type: 'Identifier',
+                                        name: 'exports',
+                                    },
+                                    computed: false,
+                                },
+                            },
+                            consequent: {
+                                type: 'ThrowStatement',
+                                argument: {
+                                    type: 'NewExpression',
+                                    callee: {
+                                        type: 'Identifier',
+                                        name: 'ReferenceError',
+                                    },
+                                    arguments: [{
+                                        type: 'StringLiteral',
+                                        value: 'Cannot redeclare export default',
+                                    }],
+                                },
+                            },
+                            start,
+                            end,
+                    });
                     delete node.declaration;
                     node.type = 'ExpressionStatement';
                     node.expression = {
