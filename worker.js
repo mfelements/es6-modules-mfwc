@@ -1,7 +1,7 @@
 (() => {
     const esModulePrivateProp = '__esModule';
 
-    function transformImportToRequireAsync({ source, specifiers }){
+    function transformImportToRequireAsync({ source, specifiers, start, end }){
         const functionBody = [
             {
                 type: 'ExpressionStatement',
@@ -94,7 +94,9 @@
                 params: [{ type: 'Identifier', name: 'v' }],
                 body: { type: 'BlockStatement', body: functionBody },
                 directives: [],
-            }]
+            }],
+            start,
+            end,
         };
         for(const specifier of specifiers){
             let value;
