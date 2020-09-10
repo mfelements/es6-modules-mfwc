@@ -256,6 +256,12 @@
         for(const object of objects) if(object.type !== type) throw new TypeError(`Cannot ensure object is of type ${type}`)
     }
 
+    function flatify(arr){
+        const r = [];
+        for(const item of arr) r.push(...(Array.isArray(item) ? item : [item]));
+        return r
+    }
+
     Babel.registerPlugin('es6-modules-mfwc-stage0', () => {
         let promiseAllArr = [];
         const eofTrigger = {
@@ -318,11 +324,47 @@
                 ExportNamedDeclaration({ parent, node }){
                     if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
                     isESM = true;
-                    const { declaration, specifiers, source } = node;
+                    const { declaration, specifiers, source, start, end } = node;
                     if(declaration){
-                        delete node.declaration;
-                        parent.body.splice(parent.body.indexOf(node), 0, declaration);
                         const declarations = declaration.declarations || [ declaration ];
+                        delete node.declaration;
+                        parent.body.splice(parent.body.indexOf(node), 0, declaration, ...declarations.map(({ id: { name } }) => ({
+                            type: 'IfStatement',
+                            test: {
+                                type: 'BinaryExpression',
+                                left: {
+                                    type: 'StringLiteral',
+                                    value: name,
+                                },
+                                operator: 'in',
+                                right: {
+                                    type: 'MemberExpression',
+                                    object: {
+                                        type: 'Identifier',
+                                        name: 'module',
+                                    },
+                                    property: {
+                                        type: 'Identifier',
+                                        name: 'exports',
+                                    },
+                                    computed: false,
+                                }
+                            },
+                            consequent: {
+                                type: 'ThrowStatement',
+                                argument: {
+                                    type: 'NewExpression',
+                                    callee: {
+                                        type: 'Identifier',
+                                        name: 'ReferenceError',
+                                    },
+                                    arguments: [{
+                                        type: 'StringLiteral',
+                                        value: 'Cannot redeclare export ' + name,
+                                    }],
+                                },
+                            },
+                        })));
                         node.type = 'ExpressionStatement';
                         node.expression = {
                             type: 'CallExpression',
@@ -453,15 +495,46 @@
                                 }],
                                 body: {
                                     type: 'BlockStatement',
-                                    body: specifiers.filter(v => v.type === 'ExportSpecifier').map(({ local }) => {
+                                    body: flatify(specifiers.filter(v => v.type === 'ExportSpecifier').map(({ local }) => {
                                         ensureType('Identifier', local);
-                                        return {
-                                            type: 'IfStatement',
-                                            test: {
-                                                type: 'UnaryExpression',
-                                                operator: '!',
-                                                prefix: true,
-                                                argument: {
+                                        return [
+                                            {
+                                                type: 'IfStatement',
+                                                test: {
+                                                    type: 'UnaryExpression',
+                                                    operator: '!',
+                                                    prefix: true,
+                                                    argument: {
+                                                        type: 'BinaryExpression',
+                                                        left: {
+                                                            type: 'StringLiteral',
+                                                            value: local.name,
+                                                        },
+                                                        operator: 'in',
+                                                        right: {
+                                                            type: 'Identifier',
+                                                            name: 'v',
+                                                        }
+                                                    }
+                                                },
+                                                consequent: {
+                                                    type: 'ThrowStatement',
+                                                    argument: {
+                                                        type: 'NewExpression',
+                                                        callee: {
+                                                            type: 'Identifier',
+                                                            name: 'ReferenceError',
+                                                        },
+                                                        arguments: [{
+                                                            type: 'StringLiteral',
+                                                            value: 'Cannot find export ' + local.name + ' in ' + source.value,
+                                                        }],
+                                                    },
+                                                },
+                                            },
+                                            {
+                                                type: 'IfStatement',
+                                                test: {
                                                     type: 'BinaryExpression',
                                                     left: {
                                                         type: 'StringLiteral',
@@ -469,26 +542,34 @@
                                                     },
                                                     operator: 'in',
                                                     right: {
-                                                        type: 'Identifier',
-                                                        name: 'v',
+                                                        type: 'MemberExpression',
+                                                        object: {
+                                                            type: 'Identifier',
+                                                            name: 'module',
+                                                        },
+                                                        property: {
+                                                            type: 'Identifier',
+                                                            name: 'exports',
+                                                        },
+                                                        computed: false,
                                                     }
-                                                }
-                                            },
-                                            consequent: {
-                                                type: 'ThrowStatement',
-                                                argument: {
-                                                    type: 'NewExpression',
-                                                    callee: {
-                                                        type: 'Identifier',
-                                                        name: 'ReferenceError',
+                                                },
+                                                consequent: {
+                                                    type: 'ThrowStatement',
+                                                    argument: {
+                                                        type: 'NewExpression',
+                                                        callee: {
+                                                            type: 'Identifier',
+                                                            name: 'ReferenceError',
+                                                        },
+                                                        arguments: [{
+                                                            type: 'StringLiteral',
+                                                            value: 'Cannot redeclare export ' + local.name,
+                                                        }],
                                                     },
-                                                    arguments: [{
-                                                        type: 'StringLiteral',
-                                                        value: 'Cannot find export ' + local.name + ' in ' + source.value,
-                                                    }],
                                                 },
                                             },
-                                        }
+                                        ]
                                     }).concat([{
                                         type: 'CallExpression',
                                         callee: {
@@ -582,6 +663,20 @@
                                                                         body: [],
                                                                     },
                                                                 },
+                                                                {
+                                                                    type: 'ObjectProperty',
+                                                                    method: false,
+                                                                    computed: false,
+                                                                    shorthand: false,
+                                                                    key: {
+                                                                        type: 'Identifier',
+                                                                        name: 'enumerable',
+                                                                    },
+                                                                    value: {
+                                                                        type: 'BooleanLiteral',
+                                                                        value: true,
+                                                                    },
+                                                                },
                                                             ],
                                                         }
                                                     } else if(specifier.type === 'ExportNamespaceSpecifier'){
@@ -635,11 +730,52 @@
                                                 })
                                             },
                                         ],
-                                    }]),
+                                    }])),
                                 },
                             }],
+                            start,
+                            end,
                         })
                     } else {
+                        parent.body.splice(parent.body.indexOf(node), 0, ...specifiers.map(({ local, exported }) => (ensureType('Identifier', local, exported), {
+                            type: 'IfStatement',
+                            test: {
+                                type: 'BinaryExpression',
+                                operator: 'in',
+                                left: {
+                                    type: 'StringLiteral',
+                                    value: exported.name,
+                                },
+                                right: {
+                                    type: 'MemberExpression',
+                                    object: {
+                                        type: 'Identifier',
+                                        name: 'module',
+                                    },
+                                    property: {
+                                        type: 'Identifier',
+                                        name: 'exports',
+                                    },
+                                    computed: false,
+                                },
+                            },
+                            consequent: {
+                                type: 'ThrowStatement',
+                                argument: {
+                                    type: 'NewExpression',
+                                    callee: {
+                                        type: 'Identifier',
+                                        name: 'ReferenceError',
+                                    },
+                                    arguments: [{
+                                        type: 'StringLiteral',
+                                        value: 'Cannot redeclare export ' + exported.name,
+                                    }],
+                                },
+                            },
+                            start,
+                            end,
+                        })));
                         node.type = 'ExpressionStatement';
                         node.expression = {
                             type: 'CallExpression',
@@ -669,7 +805,7 @@
                                 },
                                 {
                                     type: 'ObjectExpression',
-                                    properties: specifiers.map(({ local, exported }) => (ensureType('Identifier', local, exported), {
+                                    properties: specifiers.map(({ local, exported }) => ({
                                         type: 'ObjectProperty',
                                         method: false,
                                         computed: false,
