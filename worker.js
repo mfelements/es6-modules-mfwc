@@ -171,7 +171,7 @@
                         },
                         arguments: [{
                             type: 'StringLiteral',
-                            value: 'Cannot find export ' + value.property.name + ' in ' + source.value,
+                            value: start + '@Cannot find export ' + value.property.name + ' in ' + source.value,
                         }],
                     },
                 },
@@ -301,7 +301,7 @@
                     if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
                     isESM = true;
                     const { declaration, start, end } = node;
-                    parent.body.splice(parent.body.indexOf(node), 0, {
+                    parent.body.unshift({
                         type: 'IfStatement',
                             test: {
                                 type: 'BinaryExpression',
@@ -333,7 +333,7 @@
                                     },
                                     arguments: [{
                                         type: 'StringLiteral',
-                                        value: 'Cannot redeclare export default',
+                                        value: start + '@Cannot redeclare export default',
                                     }],
                                 },
                             },
@@ -375,7 +375,7 @@
                     if(declaration){
                         const declarations = declaration.declarations || [ declaration ];
                         delete node.declaration;
-                        parent.body.splice(parent.body.indexOf(node), 0, declaration, ...declarations.map(({ id: { name } }) => ({
+                        parent.body.unshift(...declarations.map(({ id: { name } }) => ({
                             type: 'IfStatement',
                             test: {
                                 type: 'BinaryExpression',
@@ -407,11 +407,14 @@
                                     },
                                     arguments: [{
                                         type: 'StringLiteral',
-                                        value: 'Cannot redeclare export ' + name,
+                                        value: start + '@Cannot redeclare export ' + name,
                                     }],
                                 },
                             },
+                            start,
+                            end,
                         })));
+                        parent.body.splice(parent.body.indexOf(node), 0, declaration);
                         node.type = 'ExpressionStatement';
                         node.expression = {
                             type: 'CallExpression',
@@ -574,7 +577,7 @@
                                                         },
                                                         arguments: [{
                                                             type: 'StringLiteral',
-                                                            value: 'Cannot find export ' + local.name + ' in ' + source.value,
+                                                            value: start + '@Cannot find export ' + local.name + ' in ' + source.value,
                                                         }],
                                                     },
                                                 },
@@ -611,7 +614,7 @@
                                                         },
                                                         arguments: [{
                                                             type: 'StringLiteral',
-                                                            value: 'Cannot redeclare export ' + local.name,
+                                                            value: start + '@Cannot redeclare export ' + local.name,
                                                         }],
                                                     },
                                                 },
@@ -784,7 +787,7 @@
                             end,
                         })
                     } else {
-                        parent.body.splice(parent.body.indexOf(node), 0, ...specifiers.map(({ local, exported }) => (ensureType('Identifier', local, exported), {
+                        parent.body.unshift(...specifiers.map(({ local, exported }) => (ensureType('Identifier', local, exported), {
                             type: 'IfStatement',
                             test: {
                                 type: 'BinaryExpression',
@@ -816,7 +819,7 @@
                                     },
                                     arguments: [{
                                         type: 'StringLiteral',
-                                        value: 'Cannot redeclare export ' + exported.name,
+                                        value: start + '@Cannot redeclare export ' + exported.name,
                                     }],
                                 },
                             },
@@ -928,7 +931,7 @@
                 },
                 ExportAllDeclaration({ parent, node }){
                     if(parent.type !== 'Program') throw new SyntaxError('Export statements are only allowed at the top level of module');
-                    const { source } = node;
+                    const { source, start } = node;
                     delete node.source;
                     node.type = 'CallExpression';
                     node.callee = {
@@ -1060,7 +1063,7 @@
                                                             operator: '+',
                                                             left: {
                                                                 type: 'StringLiteral',
-                                                                value: 'Cannot redeclare export ',
+                                                                value: start + '@Cannot redeclare export ',
                                                             },
                                                             right: {
                                                                 type: 'Identifier',
