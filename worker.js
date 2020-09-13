@@ -68,7 +68,6 @@
                 },
             },
         ];
-        let needCheck = false;
         const res = {
             type: 'CallExpression',
             callee: {
@@ -99,7 +98,9 @@
             end,
         };
         for(const specifier of specifiers){
+            let needCheck = false;
             let value;
+            ensureType('Identifier', specifier.local);
             switch(specifier.type){
                 case 'ImportNamespaceSpecifier':
                     value = {
@@ -238,11 +239,11 @@
                                     method: false,
                                     key: {
                                         type: 'Identifier',
-                                        name: 'configurable',
+                                        name: 'enumerable',
                                     },
                                     value: {
                                         type: 'BooleanLiteral',
-                                        value: false,
+                                        value: true,
                                     },
                                 },
                             ]
@@ -253,7 +254,7 @@
         }
         return res
     }
-    
+
     function ensureType(type, ...objects){
         for(const object of objects) if(object.type !== type) throw new TypeError(`Cannot ensure object is of type ${type}`)
     }
