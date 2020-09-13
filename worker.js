@@ -15,16 +15,24 @@
                     right: {
                         type: 'ConditionalExpression',
                         test: {
-                            type: 'MemberExpression',
-                            object: {
+                            type: 'LogicalExpression',
+                            operator: '&&',
+                            left: {
                                 type: 'Identifier',
                                 name: 'v',
                             },
-                            property: {
-                                type: 'Identifier',
-                                name: esModulePrivateProp,
+                            right: {
+                                type: 'MemberExpression',
+                                object: {
+                                    type: 'Identifier',
+                                    name: 'v',
+                                },
+                                property: {
+                                    type: 'Identifier',
+                                    name: esModulePrivateProp,
+                                },
+                                computed: false,
                             },
-                            computed: false,
                         },
                         consequent: {
                             type: 'Identifier',
